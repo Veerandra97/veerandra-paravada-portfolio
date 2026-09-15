@@ -1,5 +1,6 @@
 import { motion } from "motion/react";
 import { User, Leaf } from "lucide-react";
+import profileImage from "../assets/IMG_20260903_123656.jpg";
 
 export function About() {
   return (
@@ -33,7 +34,7 @@ export function About() {
               <div className="relative aspect-[4/5] rounded-3xl overflow-hidden bg-forest-900 shadow-xl border border-white/20">
                 {/* Photo Placeholder */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-sage-200/50 bg-gradient-to-b from-forest-800 to-forest-900">
-                  <img src="/IMG_20260903_123656.jpg" alt="Veerandra Paravada" className="absolute inset-0 object-cover w-full h-full transition-transform duration-700 group-hover:scale-105" />
+                  <img src={profileImage} alt="Veerandra Paravada" className="absolute inset-0 object-cover w-full h-full transition-transform duration-700 group-hover:scale-105" />
                   {/* Fallback content in case image is missing */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center -z-10">
                     <User size={64} className="mb-4 opacity-50" />

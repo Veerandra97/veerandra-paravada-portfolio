@@ -4,19 +4,24 @@ import { useEffect } from "react";
 export function Resume() {
   useEffect(() => {
     window.scrollTo(0, 0);
-    
-    // Set document title persistently while on this page to guarantee the 
-    // print dialog captures it without race conditions.
-    const originalTitle = document.title;
-    document.title = "Veerandra_Paravada_Resume";
-    
-    return () => {
-      document.title = originalTitle;
-    };
   }, []);
 
   const handlePrint = () => {
-    window.print();
+    const originalTitle = document.title;
+    document.title = "Veerandra_Paravada_Resume";
+    
+    // A small timeout allows the browser DOM to properly register the new document.title 
+    // before the blocking window.print() call executes.
+    setTimeout(() => {
+      window.print();
+      
+      // Delay restoring the title. window.print() is blocking in most browsers, 
+      // but Safari and others may read the title asynchronously as the dialog opens.
+      // Restoring it too quickly causes it to default back to the original title (or blank).
+      setTimeout(() => {
+        document.title = originalTitle;
+      }, 1000);
+    }, 100);
   };
 
   return (
