@@ -9,9 +9,9 @@ import {
   ShieldCheck,
   FileCheck,
   SearchX,
-  GripHorizontal,
   Code2,
   Sparkles,
+  ChevronDown,
 } from "lucide-react";
 
 export interface ConfirmITItem {
@@ -85,40 +85,79 @@ interface ConfirmITModalProps {
 export function ConfirmITModal({ isOpen, onClose }: ConfirmITModalProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [isFocused, setIsFocused] = useState(false);
+  const [isManuallyExpanded, setIsManuallyExpanded] = useState(false);
 
-  // Focus input when modal opens
+  const inputRef = useRef<HTMLInputElement>(null);
+  const widgetRef = useRef<HTMLDivElement>(null);
+
+  // Expanded when user focuses on search, types a query, or manually expands
+  const isExpanded = isFocused || searchQuery.trim().length > 0 || isManuallyExpanded;
+
+  // Reset state when closed
   useEffect(() => {
-    if (isOpen) {
-      const timer = setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
-      return () => clearTimeout(timer);
-    } else {
+    if (!isOpen) {
       setSearchQuery("");
       setSelectedCategory("All");
+      setIsFocused(false);
+      setIsManuallyExpanded(false);
     }
   }, [isOpen]);
 
-  // Handle ESC key to close modal
+  // Collapse back to compact bottom-right widget
+  const handleCollapse = () => {
+    setIsFocused(false);
+    setIsManuallyExpanded(false);
+    setSearchQuery("");
+    setSelectedCategory("All");
+    inputRef.current?.blur();
+  };
+
+  // Close widget entirely
+  const handleClose = () => {
+    handleCollapse();
+    onClose();
+  };
+
+  // Handle ESC key (if expanded, collapse first; if compact, close)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onClose();
+        if (isExpanded) {
+          handleCollapse();
+        } else {
+          handleClose();
+        }
       }
     };
 
     if (isOpen) {
       window.addEventListener("keydown", handleKeyDown);
-      // Lock body scroll while modal is open
-      document.body.style.overflow = "hidden";
     }
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "unset";
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, isExpanded]);
+
+  // Click outside to collapse widget if expanded
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (isExpanded && widgetRef.current && !widgetRef.current.contains(e.target as Node)) {
+        // If clicking outside while expanded, collapse cleanly
+        setIsFocused(false);
+        setIsManuallyExpanded(false);
+      }
+    };
+
+    if (isOpen && isExpanded) {
+      document.addEventListener("mousedown", handleOutsideClick);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [isOpen, isExpanded]);
 
   // Filter items dynamically based on search query and category
   const filteredItems = useMemo(() => {
@@ -144,251 +183,300 @@ export function ConfirmITModal({ isOpen, onClose }: ConfirmITModalProps) {
   const renderIcon = (type: ConfirmITItem["iconType"]) => {
     switch (type) {
       case "survey":
-        return <FileCheck className="w-5 h-5 text-gold-light" />;
+        return <FileCheck className="w-4 h-4 text-gold-light" />;
       case "logic":
-        return <Code2 className="w-5 h-5 text-moss-400" />;
+        return <Code2 className="w-4 h-4 text-moss-400" />;
       case "routing":
-        return <GitBranch className="w-5 h-5 text-sage-200" />;
+        return <GitBranch className="w-4 h-4 text-sage-200" />;
       case "quality":
-        return <ShieldCheck className="w-5 h-5 text-gold-accent" />;
+        return <ShieldCheck className="w-4 h-4 text-gold-accent" />;
       case "deployment":
-        return <CheckCircle2 className="w-5 h-5 text-moss-400" />;
+        return <CheckCircle2 className="w-4 h-4 text-moss-400" />;
       case "role":
-        return <BriefcaseBusiness className="w-5 h-5 text-cream-50" />;
+        return <BriefcaseBusiness className="w-4 h-4 text-cream-50" />;
       default:
-        return <Sparkles className="w-5 h-5 text-gold-accent" />;
+        return <Sparkles className="w-4 h-4 text-gold-accent" />;
     }
   };
 
   return (
     <AnimatePresence>
       {isOpen && (
-        <div
-          id="confirmit-modal-backdrop"
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-forest-900/60 backdrop-blur-md transition-all duration-300"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              onClose();
-            }
+        <motion.div
+          ref={widgetRef}
+          layout
+          initial={{ opacity: 0, y: 40, scale: 0.92 }}
+          animate={{
+            opacity: 1,
+            y: 0,
+            scale: 1,
           }}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="confirmit-modal-title"
+          exit={{ opacity: 0, y: 30, scale: 0.92 }}
+          transition={{
+            type: "spring",
+            damping: 30,
+            stiffness: 350,
+            layout: { duration: 0.32, ease: "easeInOut" },
+          }}
+          className={`fixed bottom-6 right-6 z-50 bg-forest-900/95 backdrop-blur-2xl border border-white/20 rounded-[1.75rem] shadow-[0_20px_50px_-10px_rgba(0,0,0,0.8),0_0_35px_rgba(184,156,101,0.15)] text-cream-50 overflow-hidden flex flex-col transition-[width,height] duration-300 ease-in-out ${
+            isExpanded
+              ? "w-[calc(100vw-3rem)] sm:w-[500px] h-[520px] max-h-[calc(100vh-5rem)]"
+              : "w-[calc(100vw-3rem)] sm:w-[340px] h-[135px]"
+          }`}
+          role="region"
+          aria-label="ConfirmIT Search Widget"
+          id="confirmit-floating-widget"
         >
-          {/* Floating Glassmorphic Window */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.94, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.94, y: 15 }}
-            transition={{ type: "spring", damping: 28, stiffness: 350 }}
-            className="relative w-full max-w-2xl bg-forest-900/90 sm:bg-forest-900/85 backdrop-blur-2xl border border-white/20 rounded-[2rem] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8),0_0_40px_rgba(184,156,101,0.12)] text-cream-50 overflow-hidden flex flex-col max-h-[90vh]"
-            onClick={(e) => e.stopPropagation()}
-            id="confirmit-floating-window"
-          >
-            {/* Ambient background glows */}
-            <div className="absolute -top-24 -right-24 w-72 h-72 bg-[radial-gradient(ellipse_at_center,rgba(184,156,101,0.2),transparent_70%)] pointer-events-none" />
-            <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-[radial-gradient(ellipse_at_center,rgba(92,106,88,0.2),transparent_70%)] pointer-events-none" />
+          {/* Subtle Ambient Background Radiance */}
+          <div className="absolute -top-20 -right-20 w-60 h-60 bg-[radial-gradient(ellipse_at_center,rgba(184,156,101,0.18),transparent_70%)] pointer-events-none" />
+          <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-[radial-gradient(ellipse_at_center,rgba(92,106,88,0.18),transparent_70%)] pointer-events-none" />
 
-            {/* Mobile drag / visual indicator */}
-            <div className="flex justify-center pt-3 pb-1 sm:hidden">
-              <div className="w-12 h-1 bg-white/20 rounded-full" />
+          {/* Top Bar (Header) */}
+          <div className="px-5 pt-3.5 pb-2 flex items-center justify-between relative z-10 border-b border-white/10">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-gold-accent shadow-inner flex-shrink-0">
+                <BriefcaseBusiness size={16} strokeWidth={2} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base sm:text-lg font-serif font-bold text-cream-50 tracking-tight leading-tight">
+                    ConfirmIT
+                  </h2>
+                  {isExpanded && (
+                    <span className="text-[10px] font-sans font-medium uppercase tracking-wider px-2 py-0.5 rounded-full bg-gold-accent/20 text-gold-light border border-gold-accent/30">
+                      Analyst
+                    </span>
+                  )}
+                </div>
+                {isExpanded && (
+                  <p className="text-[11px] text-sage-200 mt-0.5 font-light">
+                    Survey logic, routing pathways & validation records
+                  </p>
+                )}
+              </div>
             </div>
 
-            {/* Top Window Header */}
-            <div className="px-6 sm:px-8 pt-4 sm:pt-6 pb-4 border-b border-white/10 flex items-start justify-between relative z-10">
-              <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center text-gold-accent shadow-inner backdrop-blur-sm">
-                  <BriefcaseBusiness size={22} strokeWidth={1.75} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2
-                      id="confirmit-modal-title"
-                      className="text-2xl sm:text-3xl font-serif font-bold text-cream-50 tracking-tight"
-                    >
-                      ConfirmIT
-                    </h2>
-                    <span className="text-[11px] font-sans font-medium uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-gold-accent/20 text-gold-light border border-gold-accent/30">
-                      Associate Analyst
-                    </span>
-                  </div>
-                  <p className="text-xs sm:text-sm text-sage-200 mt-0.5 font-light">
-                    Survey engineering, data logic, routing pathways & quality assurance records
-                  </p>
-                </div>
-              </div>
-
-              {/* Close Button */}
+            {/* Controls */}
+            <div className="flex items-center gap-1">
+              {isExpanded && (
+                <button
+                  type="button"
+                  onClick={handleCollapse}
+                  className="p-1.5 rounded-full text-sage-300 hover:text-cream-50 hover:bg-white/10 transition-colors focus:outline-none"
+                  title="Collapse to compact view"
+                  aria-label="Collapse view"
+                  id="confirmit-collapse-button"
+                >
+                  <ChevronDown size={17} />
+                </button>
+              )}
               <button
                 type="button"
-                onClick={onClose}
-                className="p-2 rounded-full text-sage-200 hover:text-cream-50 hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-gold-accent/50 group"
-                aria-label="Close ConfirmIT window"
+                onClick={handleClose}
+                className="p-1.5 rounded-full text-sage-300 hover:text-cream-50 hover:bg-white/10 transition-colors focus:outline-none"
+                title="Close ConfirmIT"
+                aria-label="Close ConfirmIT"
                 id="confirmit-close-button"
               >
-                <X size={20} className="transition-transform duration-200 group-hover:scale-110" />
+                <X size={17} />
               </button>
             </div>
+          </div>
 
-            {/* Search Input Section */}
-            <div className="px-6 sm:px-8 pt-5 pb-3 relative z-10 space-y-3">
-              <div className="relative flex items-center bg-white/5 border border-white/15 rounded-2xl focus-within:border-gold-accent/70 focus-within:bg-white/10 focus-within:ring-2 focus-within:ring-gold-accent/25 transition-all duration-300 shadow-inner px-4 py-3">
-                <Search
-                  size={20}
-                  className="text-sage-300 transition-colors duration-200 flex-shrink-0"
-                />
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search ConfirmIT..."
-                  className="w-full bg-transparent border-none outline-none text-cream-50 placeholder-sage-300/60 text-sm sm:text-base ml-3 pr-8 font-sans"
-                  id="confirmit-search-input"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearchQuery("");
-                      inputRef.current?.focus();
-                    }}
-                    className="p-1 rounded-full text-sage-300 hover:text-cream-50 hover:bg-white/10 transition-colors mr-1"
-                    aria-label="Clear search"
-                  >
-                    <X size={16} />
-                  </button>
-                )}
-                <kbd className="hidden sm:inline-flex items-center text-[10px] text-sage-300 bg-white/10 border border-white/10 px-1.5 py-0.5 rounded font-mono uppercase">
+          {/* Search Input Container */}
+          <div className="px-4 pt-3 pb-2 relative z-10">
+            <div
+              className={`relative flex items-center bg-white/5 border rounded-2xl transition-all duration-300 shadow-inner px-3 py-2.5 ${
+                isFocused
+                  ? "border-gold-accent/70 bg-white/10 ring-2 ring-gold-accent/20"
+                  : "border-white/15 hover:border-white/25"
+              }`}
+            >
+              <Search
+                size={17}
+                className={`transition-colors duration-200 flex-shrink-0 ${
+                  isFocused ? "text-gold-accent" : "text-sage-300"
+                }`}
+              />
+              <input
+                ref={inputRef}
+                type="text"
+                value={searchQuery}
+                onFocus={() => {
+                  setIsFocused(true);
+                  setIsManuallyExpanded(true);
+                }}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  if (!isManuallyExpanded) setIsManuallyExpanded(true);
+                }}
+                placeholder="Search ConfirmIT..."
+                className="w-full bg-transparent border-none outline-none text-cream-50 placeholder-sage-300/60 text-xs sm:text-sm ml-2.5 pr-6 font-sans"
+                id="confirmit-search-input"
+              />
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery("");
+                    inputRef.current?.focus();
+                  }}
+                  className="p-1 rounded-full text-sage-300 hover:text-cream-50 hover:bg-white/10 transition-colors"
+                  aria-label="Clear search"
+                >
+                  <X size={14} />
+                </button>
+              ) : isExpanded ? (
+                <kbd className="hidden sm:inline-flex items-center text-[9px] text-sage-300 bg-white/10 border border-white/10 px-1 py-0.5 rounded font-mono uppercase">
                   ESC
                 </kbd>
-              </div>
-
-              {/* Category Quick Filter Chips */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
-                {CATEGORIES.map((cat) => {
-                  const isSelected = selectedCategory === cat;
-                  return (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => setSelectedCategory(cat)}
-                      className={`px-3 py-1 rounded-full whitespace-nowrap transition-all duration-200 text-xs font-medium ${
-                        isSelected
-                          ? "bg-gold-accent text-forest-900 shadow-sm font-semibold"
-                          : "bg-white/5 text-sage-200 hover:bg-white/10 hover:text-cream-50 border border-white/10"
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  );
-                })}
-              </div>
+              ) : null}
             </div>
 
-            {/* Results Header Meta */}
-            <div className="px-6 sm:px-8 py-2 text-xs text-sage-300 flex items-center justify-between border-b border-white/5">
-              <span>
-                {filteredItems.length === 1
-                  ? "1 record found"
-                  : `${filteredItems.length} records available`}
-              </span>
-              {searchQuery && (
-                <span>
-                  Query: <strong className="text-gold-light">"{searchQuery}"</strong>
-                </span>
-              )}
-            </div>
+            {/* In compact mode, show a small hint indicating it expands when typing */}
+            {!isExpanded && (
+              <p className="text-[10px] text-sage-300/80 mt-1.5 px-1 text-right font-light">
+                Click or type to expand
+              </p>
+            )}
+          </div>
 
-            {/* Search Results List */}
-            <div className="px-6 sm:px-8 py-4 overflow-y-auto flex-1 space-y-3.5 custom-scrollbar relative z-10">
-              {filteredItems.length > 0 ? (
-                filteredItems.map((item, idx) => (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.05, duration: 0.25 }}
-                    className="p-4 sm:p-5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all duration-300 group"
-                  >
-                    <div className="flex items-start gap-3.5">
-                      <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 group-hover:scale-105 group-hover:bg-white/10 transition-all duration-300">
-                        {renderIcon(item.iconType)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1">
-                          <h3 className="text-base sm:text-lg font-semibold text-cream-50 group-hover:text-gold-light transition-colors">
-                            {item.title}
-                          </h3>
-                          <span className="inline-block self-start sm:self-auto text-[11px] px-2.5 py-0.5 rounded-full bg-forest-800/80 text-sage-200 border border-white/10">
-                            {item.category}
-                          </span>
+          {/* Expanded Results Section */}
+          <AnimatePresence>
+            {isExpanded && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="flex flex-col flex-1 min-h-0 relative z-10"
+              >
+                {/* Category Quick Filters */}
+                <div className="px-4 pb-2 flex items-center gap-1.5 overflow-x-auto text-[11px] no-scrollbar">
+                  {CATEGORIES.map((cat) => {
+                    const isSelected = selectedCategory === cat;
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setSelectedCategory(cat)}
+                        className={`px-2.5 py-0.5 rounded-full whitespace-nowrap transition-all duration-200 font-medium ${
+                          isSelected
+                            ? "bg-gold-accent text-forest-900 shadow-sm font-semibold"
+                            : "bg-white/5 text-sage-200 hover:bg-white/10 hover:text-cream-50 border border-white/10"
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Results Header Meta */}
+                <div className="px-4 py-1.5 text-[11px] text-sage-300 flex items-center justify-between border-b border-white/5 bg-forest-900/40">
+                  <span>
+                    {filteredItems.length === 1
+                      ? "1 record match"
+                      : `${filteredItems.length} records available`}
+                  </span>
+                  {searchQuery && (
+                    <span>
+                      Query: <strong className="text-gold-light font-medium">"{searchQuery}"</strong>
+                    </span>
+                  )}
+                </div>
+
+                {/* Scrollable Results List */}
+                <div className="px-4 py-2.5 overflow-y-auto flex-1 space-y-2.5 custom-scrollbar">
+                  {filteredItems.length > 0 ? (
+                    filteredItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="p-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all duration-200 group"
+                      >
+                        <div className="flex items-start gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 group-hover:bg-white/10 group-hover:scale-105 transition-all">
+                            {renderIcon(item.iconType)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1 mb-0.5">
+                              <h3 className="text-xs sm:text-sm font-semibold text-cream-50 group-hover:text-gold-light transition-colors">
+                                {item.title}
+                              </h3>
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-forest-800/80 text-sage-200 border border-white/10 flex-shrink-0">
+                                {item.category}
+                              </span>
+                            </div>
+                            <p className="text-xs text-sage-200 leading-relaxed font-light mb-2">
+                              {item.description}
+                            </p>
+                            <div className="flex flex-wrap gap-1">
+                              {item.highlights.map((h, i) => (
+                                <span
+                                  key={i}
+                                  className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-sage-300 border border-white/5"
+                                >
+                                  {h}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-sm text-sage-200 leading-relaxed font-light mb-3">
-                          {item.description}
-                        </p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {item.highlights.map((h, i) => (
-                            <span
-                              key={i}
-                              className="text-[11px] px-2.5 py-0.5 rounded-md bg-white/5 text-sage-300 border border-white/5 group-hover:border-white/10"
-                            >
-                              {h}
-                            </span>
-                          ))}
-                        </div>
                       </div>
+                    ))
+                  ) : (
+                    /* No Results State */
+                    <div className="py-8 text-center flex flex-col items-center justify-center px-4">
+                      <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-sage-300 mb-3">
+                        <SearchX size={22} strokeWidth={1.5} />
+                      </div>
+                      <h4 className="text-sm font-semibold text-cream-50 mb-1">
+                        No results found for "{searchQuery}"
+                      </h4>
+                      <p className="text-xs text-sage-300 max-w-xs font-light mb-4">
+                        Try searching for terms like{" "}
+                        <span className="text-gold-light">survey</span>,{" "}
+                        <span className="text-gold-light">logic</span>,{" "}
+                        <span className="text-gold-light">routing</span>, or{" "}
+                        <span className="text-gold-light">quality</span>.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchQuery("");
+                          setSelectedCategory("All");
+                          inputRef.current?.focus();
+                        }}
+                        className="px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-cream-50 text-xs font-medium border border-white/15 transition-colors"
+                      >
+                        Reset Search
+                      </button>
                     </div>
-                  </motion.div>
-                ))
-              ) : (
-                /* No Results State */
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="py-12 text-center flex flex-col items-center justify-center px-4"
-                >
-                  <div className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-sage-300 mb-4">
-                    <SearchX size={28} strokeWidth={1.5} />
-                  </div>
-                  <h4 className="text-lg font-semibold text-cream-50 mb-1">
-                    No results found for "{searchQuery}"
-                  </h4>
-                  <p className="text-sm text-sage-300 max-w-sm font-light mb-5">
-                    No ConfirmIT records matched your query. Try searching for terms like{" "}
-                    <span className="text-gold-light">survey</span>,{" "}
-                    <span className="text-gold-light">logic</span>,{" "}
-                    <span className="text-gold-light">routing</span>, or{" "}
-                    <span className="text-gold-light">quality</span>.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearchQuery("");
-                      setSelectedCategory("All");
-                      inputRef.current?.focus();
-                    }}
-                    className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-cream-50 text-xs font-medium border border-white/15 transition-colors"
-                  >
-                    Reset Search
-                  </button>
-                </motion.div>
-              )}
-            </div>
+                  )}
+                </div>
 
-            {/* Window Footer */}
-            <div className="px-6 sm:px-8 py-3 bg-forest-900/70 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between text-xs text-sage-300 gap-2 relative z-10">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-moss-500 animate-pulse" />
-                <span>ConfirmIT Analytics & Engineering Hub</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="hidden sm:inline">Press <kbd className="font-mono bg-white/10 px-1 py-0.5 rounded text-[10px]">Esc</kbd> to close</span>
-                <span>Click outside to dismiss</span>
-              </div>
-            </div>
-          </motion.div>
-        </div>
+                {/* Footer Bar */}
+                <div className="px-4 py-2 bg-forest-900/90 border-t border-white/10 flex items-center justify-between text-[11px] text-sage-300">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-moss-500 animate-pulse" />
+                    <span>ConfirmIT Hub</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCollapse}
+                      className="hover:text-cream-50 underline text-[10px]"
+                    >
+                      Collapse widget
+                    </button>
+                    <span>•</span>
+                    <span>ESC to close</span>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
       )}
     </AnimatePresence>
   );
