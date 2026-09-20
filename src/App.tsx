@@ -15,9 +15,11 @@ import { Contact } from './components/Contact';
 import { NatureBackground } from './components/NatureBackground';
 import { Journey } from './components/Journey';
 import { Resume } from './components/Resume';
+import { ConfirmITModal } from './components/ConfirmITModal';
 
 export default function App() {
   const [showResume, setShowResume] = useState(false);
+  const [isConfirmITOpen, setIsConfirmITOpen] = useState(false);
 
   useEffect(() => {
     const checkHash = () => {
@@ -41,7 +43,10 @@ export default function App() {
       <NatureBackground />
       
       <div className="relative z-10 flex-grow">
-        <Navbar />
+        <Navbar
+          onOpenConfirmIT={() => setIsConfirmITOpen(true)}
+          isConfirmITActive={isConfirmITOpen}
+        />
         <main>
           <Hero />
           <About />
@@ -53,6 +58,12 @@ export default function App() {
         </main>
         <Contact />
       </div>
+
+      {/* ConfirmIT Floating Modal Window */}
+      <ConfirmITModal
+        isOpen={isConfirmITOpen}
+        onClose={() => setIsConfirmITOpen(false)}
+      />
     </div>
   );
 }
